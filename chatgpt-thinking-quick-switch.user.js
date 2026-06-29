@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.1
+// @version      0.1.2
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡, 超高, and Pro 扩展.
 // @author       Codex
 // @license      MIT
@@ -18,7 +18,8 @@
 
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
-  const SCRIPT_VERSION = '0.1.1';
+  const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
+  const SCRIPT_VERSION = '0.1.2';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -50,6 +51,7 @@
 
   let scheduled = false;
   let lastStatus = '';
+  let menuCloakTimer = 0;
 
   function normalizeText(text) {
     return String(text || '')
@@ -69,10 +71,15 @@
   function isVisible(element) {
     if (!element || !(element instanceof HTMLElement)) return false;
     const style = window.getComputedStyle(element);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if (style.opacity === '0' && !isCloakedMenuElement(element)) return false;
 
     const rect = element.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
+  }
+
+  function isCloakedMenuElement(element) {
+    return document.documentElement.hasAttribute(SWITCHING_ATTR) && !!element.closest('[role="menu"], [role="listbox"]');
   }
 
   function getElementText(element) {
@@ -225,6 +232,18 @@
     return true;
   }
 
+  function enableMenuCloak(timeoutMs = 3200) {
+    document.documentElement.setAttribute(SWITCHING_ATTR, 'true');
+    window.clearTimeout(menuCloakTimer);
+    menuCloakTimer = window.setTimeout(disableMenuCloak, timeoutMs);
+  }
+
+  function disableMenuCloak() {
+    window.clearTimeout(menuCloakTimer);
+    menuCloakTimer = 0;
+    document.documentElement.removeAttribute(SWITCHING_ATTR);
+  }
+
   async function openEffortMenu() {
     const trigger = findEffortTrigger();
     if (!trigger) {
@@ -263,6 +282,7 @@
 
   async function selectTarget(target) {
     setStatus('busy', `正在切换到 ${target.label}`);
+    enableMenuCloak();
 
     try {
       const items = await openEffortMenu();
@@ -288,6 +308,8 @@
       refreshActiveButton();
     } catch (error) {
       setStatus('error', error instanceof Error ? error.message : String(error));
+    } finally {
+      disableMenuCloak();
     }
   }
 
@@ -364,6 +386,11 @@
         background: #f5f5f5;
         border-color: #f5f5f5;
         color: #111;
+      }
+
+      html[${SWITCHING_ATTR}="true"] [role="menu"],
+      html[${SWITCHING_ATTR}="true"] [role="listbox"] {
+        opacity: 0 !important;
       }
     `;
     document.head.appendChild(style);
