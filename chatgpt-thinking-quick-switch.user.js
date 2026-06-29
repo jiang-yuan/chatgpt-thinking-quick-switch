@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.0
+// @version      0.1.1
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡, 超高, and Pro 扩展.
 // @author       Codex
 // @license      MIT
@@ -18,6 +18,7 @@
 
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
+  const SCRIPT_VERSION = '0.1.1';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -75,6 +76,8 @@
   }
 
   function getElementText(element) {
+    if (!element) return '';
+
     return normalizeText(
       element.innerText ||
         element.textContent ||
@@ -122,7 +125,10 @@
   function findEffortTrigger() {
     const composer = findComposer();
     const scopedButtons = composer ? Array.from(composer.querySelectorAll('button')) : [];
-    const scopedMatch = scopedButtons.find((button) => isVisible(button) && isLikelyEffortTrigger(button));
+    const scopedMatch = scopedButtons.find((button) => {
+      if (button.closest(`#${UI_ID}`)) return false;
+      return isVisible(button) && isLikelyEffortTrigger(button);
+    });
     if (scopedMatch) return scopedMatch;
 
     return Array.from(document.querySelectorAll('button')).find((button) => {
@@ -166,7 +172,13 @@
     const start = Date.now();
     return new Promise((resolve, reject) => {
       const tick = () => {
-        const value = predicate();
+        let value = null;
+        try {
+          value = predicate();
+        } catch {
+          value = null;
+        }
+
         if (value) {
           resolve(value);
           return;
@@ -184,13 +196,42 @@
     });
   }
 
+  function realClick(element) {
+    if (!element) return false;
+
+    // Do not pass view: window here. Tampermonkey's sandboxed window can throw in MouseEvent init.
+    const eventInit = { bubbles: true, cancelable: true, composed: true };
+    [
+      'pointerover',
+      'pointerenter',
+      'mouseover',
+      'mouseenter',
+      'pointermove',
+      'mousemove',
+      'pointerdown',
+      'mousedown',
+      'pointerup',
+      'mouseup',
+    ].forEach((type) => {
+      element.dispatchEvent(new MouseEvent(type, eventInit));
+    });
+
+    try {
+      element.click();
+    } catch {
+      return false;
+    }
+
+    return true;
+  }
+
   async function openEffortMenu() {
     const trigger = findEffortTrigger();
     if (!trigger) {
       throw new Error('没有找到 ChatGPT 原生思考强度按钮。');
     }
 
-    trigger.click();
+    realClick(trigger);
     await waitFor(() => findOpenMenuItems().length > 0);
     return findOpenMenuItems();
   }
@@ -234,7 +275,7 @@
         throw new Error(`没有找到 ${target.title}。当前菜单项：${available}`);
       }
 
-      matched.element.click();
+      realClick(matched.element);
 
       await waitFor(() => target.matches(getCurrentEffortText()), 2200).catch(async () => {
         const checkedText = await readCheckedEffortText().catch(() => '');
@@ -336,6 +377,7 @@
 
     root = document.createElement('div');
     root.id = UI_ID;
+    root.dataset.scriptVersion = SCRIPT_VERSION;
 
     TARGETS.forEach((target) => {
       const button = document.createElement('button');
@@ -427,6 +469,7 @@
   }
 
   function init() {
+    document.getElementById(UI_ID)?.remove();
     scheduleRefresh();
 
     const observer = new MutationObserver(scheduleRefresh);
