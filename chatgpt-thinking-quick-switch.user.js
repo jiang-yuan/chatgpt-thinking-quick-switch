@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.3
-// @description  Floating quick buttons for ChatGPT thinking effort: 均衡, 超高, and Pro 扩展.
+// @version      0.1.4
+// @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
 // @homepageURL  https://github.com/jiang-yuan/chatgpt-thinking-quick-switch
@@ -19,26 +19,26 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.3';
+  const SCRIPT_VERSION = '0.1.4';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
     {
       key: 'balanced',
       label: '均衡',
-      title: '切换到均衡思考强度',
-      matches: (text) => /^(均衡|balanced|balance)$/i.test(normalizeText(text)),
+      title: '切换到均衡/中思考强度',
+      matches: (text) => /^(均衡|中|medium|balanced|balance)$/i.test(normalizeText(text)),
     },
     {
       key: 'ultra',
       label: '超高',
-      title: '切换到超高思考强度',
-      matches: (text) => /^(超高|ultra|ultra high|very high|highest|maximum)$/i.test(normalizeText(text)),
+      title: '切换到超高/极高思考强度',
+      matches: (text) => /^(超高|极高|ultra|ultra high|very high|highest|maximum)$/i.test(normalizeText(text)),
     },
     {
       key: 'pro_extended',
       label: 'Pro',
-      title: '切换到 Pro 扩展思考强度；普通 Pro/专业不会被当作命中',
+      title: '切换到 Pro 思考强度',
       matches: matchesProExtended,
     },
   ];
@@ -65,7 +65,7 @@
 
     const hasProName = /\bpro\b/i.test(value) || /专业/i.test(value);
     const hasExtended = /扩展|extended|extension/i.test(value);
-    return hasProName && hasExtended;
+    return value.toLowerCase() === 'pro' || (hasProName && hasExtended);
   }
 
   function isVisible(element) {
