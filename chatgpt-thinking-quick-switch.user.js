@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.4
+// @version      0.1.5
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
@@ -19,7 +19,7 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.4';
+  const SCRIPT_VERSION = '0.1.5';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -175,6 +175,24 @@
       .filter((item) => item.text.length > 0 && item.text.length <= 40);
   }
 
+  function findAdvancedToggleItem(items) {
+    return items.find((item) => {
+      const ariaLabel = normalizeText(item.element.getAttribute('aria-label'));
+      return /^(显示高级选项|show advanced options)$/i.test(ariaLabel);
+    });
+  }
+
+  function findEffortSubmenuItem(items) {
+    return items.find((item) => {
+      if (item.element.getAttribute('aria-haspopup') !== 'menu') return false;
+      return /^(思考强度|thinking effort)(?:\s|$)/i.test(normalizeText(item.text));
+    });
+  }
+
+  function hasFinalEffortItem(items) {
+    return items.some((item) => isKnownEffortText(item.text));
+  }
+
   function waitFor(predicate, timeoutMs = 1600, intervalMs = 50) {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -251,8 +269,36 @@
     }
 
     realClick(trigger);
-    await waitFor(() => findOpenMenuItems().length > 0);
-    return findOpenMenuItems();
+    let items = await waitFor(() => {
+      const openItems = findOpenMenuItems();
+      return openItems.length > 0 ? openItems : null;
+    });
+
+    if (hasFinalEffortItem(items)) return items;
+
+    if (!findEffortSubmenuItem(items)) {
+      const advancedToggle = findAdvancedToggleItem(items);
+      if (advancedToggle) {
+        realClick(advancedToggle.element);
+        items = await waitFor(() => {
+          const openItems = findOpenMenuItems();
+          return findEffortSubmenuItem(openItems) || hasFinalEffortItem(openItems) ? openItems : null;
+        });
+      }
+    }
+
+    if (hasFinalEffortItem(items)) return items;
+
+    const effortSubmenu = findEffortSubmenuItem(items);
+    if (effortSubmenu) {
+      realClick(effortSubmenu.element);
+      items = await waitFor(() => {
+        const openItems = findOpenMenuItems();
+        return hasFinalEffortItem(openItems) ? openItems : null;
+      });
+    }
+
+    return items;
   }
 
   function closeMenus() {
@@ -510,6 +556,11 @@
     window.addEventListener('resize', scheduleRefresh, { passive: true });
     window.addEventListener('scroll', scheduleRefresh, { passive: true, capture: true });
     window.setInterval(scheduleRefresh, 1500);
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { findAdvancedToggleItem, findEffortSubmenuItem };
+    return;
   }
 
   if (document.readyState === 'loading') {
