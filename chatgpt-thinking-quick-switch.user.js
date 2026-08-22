@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.5
+// @version      0.1.6
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
@@ -19,7 +19,7 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.5';
+  const SCRIPT_VERSION = '0.1.6';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -185,7 +185,7 @@
   function findEffortSubmenuItem(items) {
     return items.find((item) => {
       if (item.element.getAttribute('aria-haspopup') !== 'menu') return false;
-      return /^(思考强度|thinking effort)(?:\s|$)/i.test(normalizeText(item.text));
+      return /^(思考强度|推理强度|thinking effort|reasoning effort)(?:\s|$)/i.test(normalizeText(item.text));
     });
   }
 
