@@ -35,3 +35,13 @@ test('finds the thinking-effort submenu without confusing model or final options
 
   assert.equal(findEffortSubmenuItem(items), items[1]);
 });
+
+test('finds the reasoning-effort submenu used by ChatGPT 5.6', () => {
+  const items = [
+    menuItem('模型 GPT-5.6 Sol', { 'aria-haspopup': 'menu' }),
+    menuItem('推理强度 极高', { 'aria-haspopup': 'menu' }),
+    menuItem('极高'),
+  ];
+
+  assert.equal(findEffortSubmenuItem(items), items[1]);
+});
