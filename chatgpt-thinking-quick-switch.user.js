@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.7
+// @version      0.1.8
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
@@ -19,7 +19,7 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.7';
+  const SCRIPT_VERSION = '0.1.8';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -189,6 +189,26 @@
     });
   }
 
+  function findEffortSliderControl(items) {
+    for (const item of items) {
+      const shortcuts = normalizeText(item.element.getAttribute('aria-keyshortcuts'));
+      const slider = item.element.querySelector('[role="slider"]');
+      if (slider && /ArrowLeft/i.test(shortcuts) && /ArrowRight/i.test(shortcuts)) {
+        return { item, slider };
+      }
+    }
+
+    return null;
+  }
+
+  function getSliderTargetValue(targetKey, min, max) {
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max - min !== 4) return null;
+    if (targetKey === 'balanced') return min + 1;
+    if (targetKey === 'ultra') return max - 1;
+    if (targetKey === 'pro_extended') return max;
+    return null;
+  }
+
   function hasFinalEffortItem(items) {
     return items.some((item) => isKnownEffortText(item.text));
   }
@@ -254,6 +274,44 @@
     return true;
   }
 
+  function realKeyPress(element, key) {
+    if (!element) return false;
+
+    element.focus();
+    const keyCode = key === 'ArrowLeft' ? 37 : 39;
+    const eventInit = {
+      key,
+      code: key,
+      keyCode,
+      which: keyCode,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    };
+    element.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+    element.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+    return true;
+  }
+
+  async function setEffortSliderTarget(control, target) {
+    const min = Number(control.slider.getAttribute('aria-valuemin'));
+    const max = Number(control.slider.getAttribute('aria-valuemax'));
+    let current = Number(control.slider.getAttribute('aria-valuenow'));
+    const desired = getSliderTargetValue(target.key, min, max);
+
+    if (!Number.isFinite(current) || desired == null) {
+      throw new Error('无法识别 ChatGPT 原生推理强度滑杆。');
+    }
+
+    while (current !== desired) {
+      const key = current < desired ? 'ArrowRight' : 'ArrowLeft';
+      const expected = current + (key === 'ArrowRight' ? 1 : -1);
+      realKeyPress(control.item.element, key);
+      await waitFor(() => Number(control.slider.getAttribute('aria-valuenow')) === expected, 700);
+      current = expected;
+    }
+  }
+
   function enableMenuCloak(timeoutMs = 3200) {
     document.documentElement.setAttribute(SWITCHING_ATTR, 'true');
     window.clearTimeout(menuCloakTimer);
@@ -278,6 +336,7 @@
       return openItems.length > 0 ? openItems : null;
     });
 
+    if (findEffortSliderControl(items)) return items;
     if (shouldTreatAsFinalEffortMenu(items)) return items;
 
     if (!findEffortSubmenuItem(items)) {
@@ -336,16 +395,20 @@
 
     try {
       const items = await openEffortMenu();
+      const sliderControl = findEffortSliderControl(items);
       const visibleTexts = items.map((item) => item.text);
       const matched = items.find((item) => target.matches(item.text));
 
-      if (!matched) {
+      if (sliderControl) {
+        await setEffortSliderTarget(sliderControl, target);
+        closeMenus();
+      } else if (!matched) {
         closeMenus();
         const available = visibleTexts.join(' / ') || '未扫描到可用项';
         throw new Error(`没有找到 ${target.title}。当前菜单项：${available}`);
+      } else {
+        realClick(matched.element);
       }
-
-      realClick(matched.element);
 
       await waitFor(() => target.matches(getCurrentEffortText()), 2200).catch(async () => {
         const checkedText = await readCheckedEffortText().catch(() => '');
@@ -563,7 +626,13 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { findAdvancedToggleItem, findEffortSubmenuItem, shouldTreatAsFinalEffortMenu };
+    module.exports = {
+      findAdvancedToggleItem,
+      findEffortSliderControl,
+      findEffortSubmenuItem,
+      getSliderTargetValue,
+      shouldTreatAsFinalEffortMenu,
+    };
     return;
   }
 

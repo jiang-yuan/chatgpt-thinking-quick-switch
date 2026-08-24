@@ -4,15 +4,20 @@ const assert = require('node:assert/strict');
 const {
   findAdvancedToggleItem,
   findEffortSubmenuItem,
+  findEffortSliderControl,
+  getSliderTargetValue,
   shouldTreatAsFinalEffortMenu,
 } = require('./chatgpt-thinking-quick-switch.user.js');
 
-function menuItem(text, attributes = {}) {
+function menuItem(text, attributes = {}, descendants = {}) {
   return {
     text,
     element: {
       getAttribute(name) {
         return attributes[name] ?? null;
+      },
+      querySelector(selector) {
+        return descendants[selector] ?? null;
       },
     },
   };
@@ -54,4 +59,21 @@ test('does not treat the model menu as final when it also contains an effort sub
   ];
 
   assert.equal(shouldTreatAsFinalEffortMenu(items), false);
+});
+
+test('finds the five-step reasoning effort slider control', () => {
+  const slider = { getAttribute: () => null };
+  const items = [
+    menuItem('高级'),
+    menuItem('能力', { 'aria-keyshortcuts': 'ArrowLeft ArrowRight' }, { '[role="slider"]': slider }),
+    menuItem('推理强度 中', { 'aria-haspopup': 'menu' }),
+  ];
+
+  assert.equal(findEffortSliderControl(items)?.slider, slider);
+});
+
+test('maps quick targets to the five-step slider positions', () => {
+  assert.equal(getSliderTargetValue('balanced', 0, 4), 1);
+  assert.equal(getSliderTargetValue('ultra', 0, 4), 3);
+  assert.equal(getSliderTargetValue('pro_extended', 0, 4), 4);
 });
