@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.6
+// @version      0.1.7
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
@@ -19,7 +19,7 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.6';
+  const SCRIPT_VERSION = '0.1.7';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -193,6 +193,10 @@
     return items.some((item) => isKnownEffortText(item.text));
   }
 
+  function shouldTreatAsFinalEffortMenu(items) {
+    return !findEffortSubmenuItem(items) && hasFinalEffortItem(items);
+  }
+
   function waitFor(predicate, timeoutMs = 1600, intervalMs = 50) {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -274,7 +278,7 @@
       return openItems.length > 0 ? openItems : null;
     });
 
-    if (hasFinalEffortItem(items)) return items;
+    if (shouldTreatAsFinalEffortMenu(items)) return items;
 
     if (!findEffortSubmenuItem(items)) {
       const advancedToggle = findAdvancedToggleItem(items);
@@ -282,12 +286,12 @@
         realClick(advancedToggle.element);
         items = await waitFor(() => {
           const openItems = findOpenMenuItems();
-          return findEffortSubmenuItem(openItems) || hasFinalEffortItem(openItems) ? openItems : null;
+          return findEffortSubmenuItem(openItems) || shouldTreatAsFinalEffortMenu(openItems) ? openItems : null;
         });
       }
     }
 
-    if (hasFinalEffortItem(items)) return items;
+    if (shouldTreatAsFinalEffortMenu(items)) return items;
 
     const effortSubmenu = findEffortSubmenuItem(items);
     if (effortSubmenu) {
@@ -559,7 +563,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { findAdvancedToggleItem, findEffortSubmenuItem };
+    module.exports = { findAdvancedToggleItem, findEffortSubmenuItem, shouldTreatAsFinalEffortMenu };
     return;
   }
 

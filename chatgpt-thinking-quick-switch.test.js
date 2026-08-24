@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   findAdvancedToggleItem,
   findEffortSubmenuItem,
+  shouldTreatAsFinalEffortMenu,
 } = require('./chatgpt-thinking-quick-switch.user.js');
 
 function menuItem(text, attributes = {}) {
@@ -44,4 +45,13 @@ test('finds the reasoning-effort submenu used by ChatGPT 5.6', () => {
   ];
 
   assert.equal(findEffortSubmenuItem(items), items[1]);
+});
+
+test('does not treat the model menu as final when it also contains an effort submenu', () => {
+  const items = [
+    menuItem('高级'),
+    menuItem('推理强度 中', { 'aria-haspopup': 'menu' }),
+  ];
+
+  assert.equal(shouldTreatAsFinalEffortMenu(items), false);
 });
