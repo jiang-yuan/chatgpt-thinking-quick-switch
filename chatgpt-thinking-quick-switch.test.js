@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  closeMenus,
   findAdvancedToggleItem,
   findEffortSubmenuItem,
   findEffortSliderControl,
@@ -76,4 +77,41 @@ test('maps quick targets to the five-step slider positions', () => {
   assert.equal(getSliderTargetValue('balanced', 0, 4), 1);
   assert.equal(getSliderTargetValue('ultra', 0, 4), 3);
   assert.equal(getSliderTargetValue('pro_extended', 0, 4), 4);
+});
+
+test('releases Escape after closing menus so other extensions do not see a stuck key', () => {
+  const originalDocument = global.document;
+  const originalKeyboardEvent = global.KeyboardEvent;
+  const events = [];
+
+  global.KeyboardEvent = class KeyboardEvent {
+    constructor(type, init) {
+      this.type = type;
+      this.key = init.key;
+    }
+  };
+  global.document = {
+    activeElement: {
+      dispatchEvent(event) {
+        events.push(`active:${event.type}:${event.key}`);
+      },
+    },
+    dispatchEvent(event) {
+      events.push(`document:${event.type}:${event.key}`);
+    },
+  };
+
+  try {
+    closeMenus();
+  } finally {
+    global.document = originalDocument;
+    global.KeyboardEvent = originalKeyboardEvent;
+  }
+
+  assert.deepEqual(events, [
+    'active:keydown:Escape',
+    'active:keyup:Escape',
+    'document:keydown:Escape',
+    'document:keyup:Escape',
+  ]);
 });

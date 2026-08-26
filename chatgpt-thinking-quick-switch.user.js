@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Thinking Quick Switch
 // @namespace    https://chatgpt.com/
-// @version      0.1.8
+// @version      0.1.9
 // @description  Floating quick buttons for ChatGPT thinking effort: 均衡/中, 超高/极高, and Pro.
 // @author       Codex
 // @license      MIT
@@ -19,7 +19,7 @@
   const UI_ID = 'cgpt-thinking-quick-switch';
   const STYLE_ID = 'cgpt-thinking-quick-switch-style';
   const SWITCHING_ATTR = 'data-cgpt-tqs-switching';
-  const SCRIPT_VERSION = '0.1.8';
+  const SCRIPT_VERSION = '0.1.9';
   const POSITION_MARGIN = 12;
 
   const TARGETS = [
@@ -374,8 +374,13 @@
       cancelable: true,
     };
 
-    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', eventInit));
-    document.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+    const dispatchEscape = (target) => {
+      target?.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+      target?.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+    };
+
+    dispatchEscape(document.activeElement);
+    dispatchEscape(document);
   }
 
   function getCurrentEffortText() {
@@ -627,6 +632,7 @@
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
+      closeMenus,
       findAdvancedToggleItem,
       findEffortSliderControl,
       findEffortSubmenuItem,
